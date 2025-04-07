@@ -1,0 +1,105 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FAST_API_CHAT</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+        #chat {
+            width: 60%;
+            max-width: 600px;
+            border: 1px solid #ccc;
+            padding: 10px;
+            border-radius: 8px;
+            background-color: #f9f9f9;
+            overflow-y: auto;
+            max-height: 400px;
+        }
+        #message {
+            width: calc(100% - 100px);
+        }
+        .user-list {
+            font-size: 0.9em;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+    <h1>FastAPI Chat</h1>
+    <div class="user-list" id="user-list"></div>
+    <div id="chat"></div>
+    <input type="text" id="username" placeholder="Enter your name">
+    <input type="text" id="message" placeholder="Enter message" disabled>
+    <button onclick="joinChat()" id="join-btn">Join</button>
+    <button onclick="sendMessage()" id="send-btn" disabled>Send</button>
+
+    <script>
+        let socket;
+        let username;
+
+        function joinChat() {
+            const usernameInput = document.getElementById("username");
+            username = usernameInput.value;
+            if (!username) {
+                alert("Please enter a username.");
+                return;
+            }
+
+            socket = new WebSocket("ws://localhost:8000/ws/chat");
+
+            socket.onopen = () => {
+                socket.send(username);
+                usernameInput.disabled = true;
+                document.getElementById("message").disabled = false;
+                document.getElementById("send-btn").disabled = false;
+                document.getElementById("join-btn").disabled = true;
+            };
+
+            socket.onmessage = (event) => {
+                const chatDiv = document.getElementById("chat");
+
+                if (event.data.startsWith("USERS:")) {
+                    const userListDiv = document.getElementById("user-list");
+                    const users = event.data.replace("USERS:", "").split(",");
+                    userListDiv.textContent = `Active users: ${users.join(", ")}`;
+                } else {
+                    const messageElement = document.createElement("p");
+
+                    if (event.data.includes("[Private]")){
+                        messageElement.style.color = "red"
+                    }
+
+                    messageElement.innerHTML = event.data;
+                    chatDiv.appendChild(messageElement);
+                    chatDiv.scrollTop = chatDiv.scrollHeight;
+                }
+            };
+
+            socket.onclose = () => {
+                alert("Disconnected from chat.");
+                document.getElementById("message").disabled = true;
+                document.getElementById("send-btn").disabled = true;
+                document.getElementById("join-btn").disabled = false;
+                usernameInput.disabled = false;
+            };
+        }
+
+        function sendMessage() {
+            const messageInput = document.getElementById("message");
+            const message = messageInput.value;
+            if (message && socket) {
+                socket.send(message);
+                messageInput.value = "";
+            }
+        }
+    </script>
+</body>
+</html>
